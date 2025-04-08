@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Monaco Editor with Tabs</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        .tab-container {
+            background: rgb(30, 30, 30); /* Match the tab bar background to rgb(30, 30, 30) */
+            padding: 5px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            align-items: center;
+        }
+        .tab {
+            display: flex;
+            align-items: center;
+            padding: 8px 10px;
+            background: #2d2d2d; /* Inactive tab background */
+            color: #fff;
+            margin-right: 5px;
+            border-radius: 3px 3px 0 0;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            transition: transform 0.3s ease, opacity 0.3s ease; /* Animation for tabs */
+        }
+        .tab.active {
+            background: rgb(30, 30, 30); /* Match active tab background to rgb(30, 30, 30) */
+        }
+        .tab span {
+            cursor: pointer;
+        }
+        .tab .close-btn {
+            margin-left: 8px;
+            cursor: pointer;
+            color: #fff;
+            font-size: 12px;
+        }
+        .add-tab {
+            padding: 8px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 14px;
+            margin-left: 5px;
+        }
+        #editor {
+            flex: 1;
+            width: 100%;
+            background: rgb(30, 30, 30) !important; /* Editor container already set to rgb(30, 30, 30) */
+        }
+        /* Animation for adding a tab */
+        .tab.added {
+            animation: slideIn 0.3s ease forwards;
+        }
+        @keyframes slideIn {
+            from {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        /* Animation for closing a tab */
+        .tab.closing {
+            animation: slideOut 0.3s ease forwards;
+        }
+        @keyframes slideOut {
+            from {
+                transform: translateY(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="tab-container">
+        <div class="tab active" data-tab-id="0">
+            <span onclick="switchTab(0)">Tab 1</span>
+            <span class="close-btn" onclick="closeTab(0)">✕</span>
+        </div>
+        <div class="add-tab" onclick="addTab()">+</div>
+    </div>
+    <div id="editor"></div>
+
+    <!-- Include Monaco Editor from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.33.0/min/vs/loader.min.js"></script>
+    <script>
+        require.config({ 
+            paths: { 
+                'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.33.0/min/vs' 
+            }
+        });
+
+        let editors = [];
+        let currentTab = 0;
+        let tabCount = 1;
+        let editorContents = ['// Tab 1 content\nconsole.log("Hello from Tab 1");']; // Store content for each tab
+        let currentEditor = null; // Track the currently active editor
+
+        require(['vs/editor/editor.main'], function() {
+            // Initialize the editor container
+            const editorContainer = document.getElementById('editor');
+
+            // Create the first editor
+            currentEditor = monaco.editor.create(editorContainer, {
+                value: editorContents[0],
+                language: 'javascript',
+                theme: 'vs-dark',
+                automaticLayout: true,
+                minimap: { enabled: false }, // Disable the minimap (zoomed-out view)
+                scrollbar: {
+                    vertical: 'visible', // Ensure the vertical scroll bar is visible
+                    verticalScrollbarSize: 10 // Adjust the scroll bar size if needed
+                }
+            });
+
+            // Override the editor's background color to rgb(30, 30, 30)
+            monaco.editor.defineTheme('custom-dark', {
+                base: 'vs-dark',
+                inherit: true,
+                rules: [],
+                colors: {
+                    'editor.background': '#1E1E1E', // rgb(30, 30, 30) in hex
+                    'editor.foreground': '#FFFFFF',  // White text for readability
+                    'editorLineNumber.foreground': '#AAAAAA' // Adjust line numbers color for readability
+                }
+            });
+            currentEditor.updateOptions({ theme: 'custom-dark' });
+
+            editors[0] = currentEditor;
+        });
+
+        function switchTab(tabIndex) {
+            if (tabIndex === currentTab) return; // No need to switch if already on this tab
+
+            const tabs = document.getElementsByClassName('tab');
+            tabs[currentTab].classList.remove('active');
+            tabs[tabIndex].classList.add('active');
+
+            // Save the content of the current editor
+            if (currentEditor) {
+                editorContents[currentTab] = currentEditor.getValue();
+            }
+
+            // Dispose of the current editor
+            if (currentEditor) {
+                currentEditor.dispose();
+            }
+
+            // Create a new editor for the selected tab
+            const editorContainer = document.getElementById('editor');
+            currentEditor = monaco.editor.create(editorContainer, {
+                value: editorContents[tabIndex] || '',
+                language: 'javascript',
+                theme: 'custom-dark',
+                automaticLayout: true,
+                minimap: { enabled: false }, // Disable the minimap for new editors
+                scrollbar: {
+                    vertical: 'visible', // Ensure the vertical scroll bar is visible
+                    verticalScrollbarSize: 10
+                }
+            });
+
+            editors[tabIndex] = currentEditor;
+            currentTab = tabIndex;
+        }
+
+        function addTab() {
+            const tabContainer = document.querySelector('.tab-container');
+            const newTabIndex = tabCount++;
+
+            // Create new tab element with animation
+            const newTab = document.createElement('div');
+            newTab.classList.add('tab', 'added');
+            newTab.setAttribute('data-tab-id', newTabIndex);
+            newTab.innerHTML = `
+                <span onclick="switchTab(${newTabIndex})">Tab ${newTabIndex + 1}</span>
+                <span class="close-btn" onclick="closeTab(${newTabIndex})">✕</span>
+            `;
+
+            // Insert the new tab before the "+" button
+            const addTabButton = document.querySelector('.add-tab');
+            tabContainer.insertBefore(newTab, addTabButton);
+
+            // Initialize content for the new tab
+            editorContents[newTabIndex] = `// Tab ${newTabIndex + 1} content\n`;
+
+            // Switch to the new tab
+            switchTab(newTabIndex);
+        }
+
+        function closeTab(tabIndex) {
+            const tabs = document.getElementsByClassName('tab');
+            if (tabs.length <= 1) return; // Don't close the last tab
+
+            // Find the tab element to animate
+            const tabToRemove = Array.from(tabs).find(tab => parseInt(tab.getAttribute('data-tab-id')) === tabIndex);
+            tabToRemove.classList.add('closing');
+
+            // Wait for the animation to finish before removing the tab
+            setTimeout(() => {
+                // Remove the tab element
+                tabToRemove.remove();
+
+                // Clean up the editor content array
+                editorContents[tabIndex] = null;
+                editors[tabIndex] = null;
+
+                // If the closed tab was active, switch to another tab
+                if (currentTab === tabIndex) {
+                    const remainingTabs = Array.from(document.getElementsByClassName('tab'));
+                    const newTabIndex = parseInt(remainingTabs[remainingTabs.length - 1].getAttribute('data-tab-id'));
+                    switchTab(newTabIndex);
+                }
+            }, 300); // Match the animation duration (0.3s)
+        }
+    </script>
+</body>
+</html>
